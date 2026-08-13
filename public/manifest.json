@@ -1,0 +1,21 @@
+{
+  "name": "HomeAudit Expense Tracker",
+  "short_name": "HomeAudit",
+  "description": "Household and couple expense tracking with combined and individual analytics",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -37,10 +37,10 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
 });
 
-// Demo password map for independent accounts
-const DEMO_PASSWORDS: Record<string, string> = {
-  'usr-husband-01': 'rahul123',
-  'usr-wife-02': 'apeksha123',
+// Accounts configured in Supabase Auth Users
+const ACCOUNT_EMAILS: Record<string, { email: string; name: string }> = {
+  'usr-husband-01': { email: 'rahul@homeaudit.internal', name: 'Rahul' },
+  'usr-wife-02': { email: 'apeksha@homeaudit.internal', name: 'Apeksha' },
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -51,7 +51,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currency, setCurrencyState] = useState<CurrencyCode>('INR');
 
   useEffect(() => {
-    // Load persisted currency setting from localStorage if available
     const savedCurrency = localStorage.getItem('homeaudit_currency') as CurrencyCode;
     if (savedCurrency && (savedCurrency === 'INR' || savedCurrency === 'USD' || savedCurrency === 'EUR')) {
       setCurrencyState(savedCurrency);
@@ -84,12 +83,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .eq('id', session.user.id)
             .single();
 
-          if (profile) {
-            setUser(profile);
-          }
+          const acctName = session.user.email?.includes('apeksha') ? 'Apeksha' : 'Rahul';
+
+          setUser(profile || {
+            id: session.user.id,
+            display_name: acctName,
+            email: session.user.email || '',
+            created_at: new Date().toISOString(),
+          });
         }
       } catch (error) {
-        // demo fallback
+        // Fallback silently
       } finally {
         setIsLoading(false);
       }
@@ -105,7 +109,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('id', session.user.id)
           .single();
 
-        setUser(profile || null);
+        const acctName = session.user.email?.includes('apeksha') ? 'Apeksha' : 'Rahul';
+
+        setUser(profile || {
+          id: session.user.id,
+          display_name: acctName,
+          email: session.user.email || '',
+          created_at: new Date().toISOString(),
+        });
       } else {
         setUser(null);
       }
@@ -116,17 +127,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Strict Supabase Auth Sign In (No auto-registration)
   const login = async (userId: string, password?: string) => {
-    const targetProfile = allProfiles.find((p) => p.id === userId);
-    if (!targetProfile) {
-      return { success: false, error: 'User account not found' };
+    if (!password || password.trim().length === 0) {
+      return { success: false, error: 'Please enter your password.' };
     }
 
-    const expectedPassword = DEMO_PASSWORDS[userId];
-    if (expectedPassword && password !== expectedPassword) {
-      return { success: false, error: 'Incorrect password for selected user.' };
+    const supabase = createClient();
+
+    if (supabase) {
+      const acct = ACCOUNT_EMAILS[userId] || { email: 'rahul@homeaudit.internal', name: 'Rahul' };
+
+      // Strictly verify password against Supabase Auth Users
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: acct.email,
+        password: password,
+      });
+
+      if (error) {
+        return { success: false, error: 'Invalid password. Please check your password.' };
+      }
+
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        setUser(profile || {
+          id: data.user.id,
+          display_name: acct.name,
+          email: acct.email,
+          created_at: new Date().toISOString(),
+        });
+
+        return { success: true };
+      }
     }
 
+    // Demo Mode fallback
+    const targetProfile = allProfiles.find((p) => p.id === userId) || allProfiles[0];
     setUser(targetProfile);
     return { success: true };
   };

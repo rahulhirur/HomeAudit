@@ -102,11 +102,6 @@ export const LoginPage: React.FC = () => {
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Password
               </label>
-              {isDemoMode && (
-                <span className="text-[10px] text-indigo-400 italic">
-                  Demo password: {selectedProfile?.display_name === 'Rahul' ? 'rahul123' : 'apeksha123'}
-                </span>
-              )}
             </div>
             <div className="relative">
               <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />

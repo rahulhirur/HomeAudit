@@ -73,6 +73,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsDemoMode(false);
 
+    // Dynamically fetch all active user profiles from Supabase database
+    const fetchProfiles = async () => {
+      try {
+        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        if (dbProfiles && dbProfiles.length > 0) {
+          setAllProfiles(dbProfiles);
+        }
+      } catch (err) {
+        // Fallback to defaults
+      }
+    };
+
+    fetchProfiles();
+
     const getInitialUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -136,11 +150,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const supabase = createClient();
 
     if (supabase) {
-      const acct = ACCOUNT_EMAILS[userId] || { email: 'rahul@homeaudit.internal', name: 'Rahul' };
+      const selectedProf = allProfiles.find((p) => p.id === userId);
+      const email = selectedProf?.email || ACCOUNT_EMAILS[userId]?.email || 'rahul@homeaudit.internal';
+      const name = selectedProf?.display_name || ACCOUNT_EMAILS[userId]?.name || 'Rahul';
 
       // Strictly verify password against Supabase Auth Users
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: acct.email,
+        email: email,
         password: password,
       });
 
@@ -157,8 +173,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setUser(profile || {
           id: data.user.id,
-          display_name: acct.name,
-          email: acct.email,
+          display_name: name,
+          email: email,
           created_at: new Date().toISOString(),
         });
 

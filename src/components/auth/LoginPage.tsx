@@ -2,10 +2,44 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Wallet, Lock, User, ArrowRight, KeyRound, AlertCircle } from 'lucide-react';
+import { Wallet, Lock, ArrowRight, KeyRound, AlertCircle } from 'lucide-react';
+
+// Curated primary gradients for core household accounts
+const PRIMARY_GRADIENTS: Record<string, string> = {
+  Rahul: 'bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-400 text-white shadow-indigo-500/25',
+  Apeksha: 'bg-gradient-to-tr from-rose-500 via-pink-500 to-purple-500 text-white shadow-rose-500/25',
+  Guest: 'bg-gradient-to-tr from-amber-500 via-orange-500 to-cyan-500 text-white shadow-amber-500/25',
+};
+
+// Dynamic gradient palette pool for ANY new user added in the future
+const DYNAMIC_GRADIENTS = [
+  'bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-emerald-500/25',
+  'bg-gradient-to-tr from-violet-600 to-indigo-400 text-white shadow-violet-500/25',
+  'bg-gradient-to-tr from-cyan-500 to-blue-500 text-white shadow-cyan-500/25',
+  'bg-gradient-to-tr from-fuchsia-500 to-pink-500 text-white shadow-fuchsia-500/25',
+  'bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-amber-500/25',
+  'bg-gradient-to-tr from-sky-500 to-indigo-500 text-white shadow-sky-500/25',
+];
+
+// Helper that deterministically generates a unique vibrant gradient for any new user name
+const getAvatarStyle = (name: string) => {
+  const norm = name.trim();
+  if (PRIMARY_GRADIENTS[norm]) return PRIMARY_GRADIENTS[norm];
+  if (norm.toLowerCase().includes('rahul')) return PRIMARY_GRADIENTS.Rahul;
+  if (norm.toLowerCase().includes('apeksha')) return PRIMARY_GRADIENTS.Apeksha;
+  if (norm.toLowerCase().includes('guest')) return PRIMARY_GRADIENTS.Guest;
+
+  // Hash user name to pick a consistent dynamic gradient from palette pool
+  let hash = 0;
+  for (let i = 0; i < norm.length; i++) {
+    hash = norm.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % DYNAMIC_GRADIENTS.length;
+  return DYNAMIC_GRADIENTS[index];
+};
 
 export const LoginPage: React.FC = () => {
-  const { allProfiles, login, isDemoMode } = useAuth();
+  const { allProfiles, login } = useAuth();
 
   const [selectedUserId, setSelectedUserId] = useState<string>(allProfiles[0]?.id || 'usr-husband-01');
   const [password, setPassword] = useState<string>('');
@@ -30,6 +64,8 @@ export const LoginPage: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  const gridColsClass = allProfiles.length >= 3 ? 'grid-cols-3' : 'grid-cols-2';
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-indigo-500 selection:text-white">
@@ -67,9 +103,12 @@ export const LoginPage: React.FC = () => {
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 text-center">
               Select Your Account
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid ${gridColsClass} gap-3`}>
               {allProfiles.map((p) => {
                 const isSelected = selectedUserId === p.id;
+                const initialChar = p.display_name.charAt(0).toUpperCase();
+                const avatarStyle = getAvatarStyle(p.display_name);
+
                 return (
                   <button
                     type="button"
@@ -78,18 +117,18 @@ export const LoginPage: React.FC = () => {
                       setSelectedUserId(p.id);
                       setError(null);
                     }}
-                    className={`flex flex-col items-center p-4 rounded-2xl border transition-all ${
+                    className={`flex flex-col items-center p-3.5 rounded-2xl border transition-all ${
                       isSelected
-                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-lg shadow-indigo-500/10'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-lg shadow-indigo-500/10 scale-[1.02]'
                         : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                     }`}
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mb-2 ${
-                      isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'
-                    }`}>
-                      {p.display_name.charAt(0)}
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base mb-2 shadow-lg transition-transform ${
+                      isSelected ? 'scale-110 ring-2 ring-indigo-400/50' : 'opacity-90 hover:opacity-100'
+                    } ${avatarStyle}`}>
+                      {initialChar}
                     </div>
-                    <span className="text-xs font-semibold">{p.display_name}</span>
+                    <span className="text-xs font-semibold capitalize truncate max-w-full">{p.display_name}</span>
                   </button>
                 );
               })}
@@ -108,7 +147,7 @@ export const LoginPage: React.FC = () => {
               <input
                 type="password"
                 required
-                placeholder="Enter account password"
+                placeholder={`Enter password for ${selectedProfile?.display_name || 'account'}`}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-slate-800/80 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-700 focus:border-indigo-500 focus:outline-none text-sm transition-colors"

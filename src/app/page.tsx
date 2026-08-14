@@ -26,7 +26,7 @@ export default function Home() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
-  // Sync Expenses & Categories from Supabase database
+  // Sync Expenses & Categories from Supabase database with Realtime WebSocket Multi-Device Listener
   useEffect(() => {
     if (isDemoMode) {
       setExpenses(MOCK_EXPENSES);
@@ -64,6 +64,22 @@ export default function Home() {
     };
 
     fetchData();
+
+    // 3. Supabase Realtime Multi-Device Instant Sync WebSocket
+    const channel = supabase
+      .channel('realtime_expenses_channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses' },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [isDemoMode, user]);
 
   if (isLoading) {
@@ -296,7 +312,6 @@ export default function Home() {
         categories={categories}
         onAddCategory={handleAddCategory}
       />
-
     </div>
   );
 }

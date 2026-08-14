@@ -23,7 +23,7 @@ export const MinimalistHome: React.FC<MinimalistHomeProps> = ({
 }) => {
   const { user, currencySymbol } = useAuth();
   const [timeframe, setTimeframe] = useState<Timeframe>('monthly');
-  const [viewMode, setViewMode] = useState<ViewMode>('combined');
+  const [viewMode, setViewMode] = useState<ViewMode>('my');
 
   // Recent Transactions Pagination State
   const [recentPage, setRecentPage] = useState<number>(1);

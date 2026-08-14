@@ -1,4 +1,5 @@
 export type SplitType = 'SHARED_50_50' | 'INDIVIDUAL_PAID_BY_ME' | 'INDIVIDUAL_PAID_FOR_OTHER';
+export type TabType = 'home' | 'expenses' | 'analytics' | 'settlement';
 
 export interface Profile {
   id: string;

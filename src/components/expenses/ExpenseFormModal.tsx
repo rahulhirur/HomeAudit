@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Expense, SplitType } from '@/types';
 import { useAuth } from '@/context/AuthContext';
-import { X, Check, ShoppingCart, Zap, Home, Utensils, ShoppingBag, HeartPulse, Car, Film, User, MoreHorizontal, Search, Globe, History, Sparkles, Users, UserCheck, UserPlus } from 'lucide-react';
+import { X, Check, ShoppingCart, Zap, Home, Utensils, ShoppingBag, HeartPulse, Car, Film, User, MoreHorizontal, Globe, History, Users, UserCheck, UserPlus } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface ExpenseFormModalProps {
@@ -36,6 +36,37 @@ interface SuggestionItem {
   categoryHintId?: string;
 }
 
+// Strict Safety Blocklist: Filters out explicit/adult content, pop media, fiction & non-household entities
+const INAPPROPRIATE_KEYWORDS = [
+  'adult', 'erotic', 'porn', 'sex', 'hentai', 'nude', 'fetish', 'playboy', 'sensual',
+  'film', 'movie', 'novel', 'song', 'album', 'band', 'single', 'video game', 'fictional character',
+  'episode', 'manga', 'anime', 'mythology', 'constellation', 'asteroid', 'crater'
+];
+
+// Grounded Household Keywords: Positively allows real-world products, foods, utilities, and brands
+const HOUSEHOLD_GROUNDED_KEYWORDS = [
+  'food', 'brand', 'product', 'drink', 'beverage', 'confectionery', 'dairy', 'snack',
+  'sweet', 'utility', 'company', 'retail', 'chain', 'restaurant', 'store', 'supermarket',
+  'service', 'telecom', 'transport', 'pharmacy', 'apparel', 'fuel', 'dish', 'ingredient',
+  'fruit', 'vegetable', 'meat', 'bread', 'pastry', 'chocolate', 'dessert', 'household'
+];
+
+const isHouseholdRelevantAndSafe = (title: string, desc: string): boolean => {
+  const fullText = `${title} ${desc}`.toLowerCase();
+
+  // 1. Instantly reject any adult or inappropriate terms
+  const isBlocked = INAPPROPRIATE_KEYWORDS.some((word) => fullText.includes(word));
+  if (isBlocked) return false;
+
+  // 2. If description exists, require positive household/commercial grounding
+  if (desc && desc.trim().length > 0) {
+    const isGrounded = HOUSEHOLD_GROUNDED_KEYWORDS.some((kw) => fullText.includes(kw));
+    return isGrounded;
+  }
+
+  return true;
+};
+
 export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
   isOpen,
   onClose,
@@ -57,7 +88,6 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
 
   // Universal Autocomplete & Semantic Classifier State
   const [matchingSuggestions, setMatchingSuggestions] = useState<SuggestionItem[]>([]);
-  const [ghostSuffix, setGhostSuffix] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
@@ -83,7 +113,6 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
       setDescription('');
     }
     setMatchingSuggestions([]);
-    setGhostSuffix('');
     setShowDropdown(false);
     setSelectedIndex(null);
   }, [editingExpense, isOpen, categories, user, allProfiles]);
@@ -111,7 +140,8 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
           t.includes('dairy') || t.includes('milk') || t.includes('curd') || t.includes('paneer') ||
           t.includes('cheese') || t.includes('fruit') || t.includes('vegetable') || t.includes('grocery') ||
           t.includes('supermarket') || t.includes('grain') || t.includes('rice') || t.includes('flour') ||
-          t.includes('bread') || t.includes('snack') || t.includes('biscuit') || t.includes('beverage')
+          t.includes('bread') || t.includes('snack') || t.includes('biscuit') || t.includes('beverage') ||
+          t.includes('chocolate') || t.includes('confectionery') || t.includes('sweet')
         ) return true;
       }
 
@@ -171,27 +201,21 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
     return targetCategory ? targetCategory.id : null;
   };
 
-  // Hybrid Title Change & Semantic Classifier Fetcher
+  // Non-Intrusive Title Change Handler: Never overrides category or types ghost text automatically
   const handleTitleChange = (val: string) => {
     setTitle(val);
     setSelectedIndex(null);
 
-    // Apply fast local semantic match immediately
-    const fastCatId = mapSemanticDescriptionToCategoryId(val);
-    if (fastCatId) {
-      setCategoryId(fastCatId);
-    }
-
-    if (!val.trim()) {
+    // Require minimum 3 characters before showing suggestions to avoid noise
+    if (val.trim().length < 3) {
       setMatchingSuggestions([]);
-      setGhostSuffix('');
       setShowDropdown(false);
       return;
     }
 
     const query = val.trim().toLowerCase();
 
-    // 1. Check Saved Expense History
+    // 1. Check Saved Expense History (Always safe and user-verified)
     const historyMatches: SuggestionItem[] = Array.from(
       new Set(expensesHistory.map((e) => e.title))
     )
@@ -208,14 +232,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
     setMatchingSuggestions(historyMatches);
     setShowDropdown(historyMatches.length > 0);
 
-    const topMatch = historyMatches.find((m) => m.title.toLowerCase().startsWith(query));
-    if (topMatch) {
-      setGhostSuffix(topMatch.title.slice(val.length));
-    } else {
-      setGhostSuffix('');
-    }
-
-    // 2. Fetch Wikidata Live Semantic Entity Search (Free, keyless, global structured semantic search)
+    // 2. Fetch Wikidata Live Grounded & Filtered Entity Search (Debounced & Non-Intrusive)
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
     debounceTimerRef.current = setTimeout(async () => {
@@ -223,55 +240,48 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
         const res = await fetch(
           `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(
             val
-          )}&language=en&limit=5&format=json&origin=*`
+          )}&language=en&limit=8&format=json&origin=*`
         );
 
         if (res.ok) {
           const data = await res.json();
           const searchResults: Array<{ label: string; description?: string }> = data.search || [];
 
-          const semanticItems: SuggestionItem[] = searchResults.map((item) => {
-            const desc = item.description || '';
-            const matchedCatId = mapSemanticDescriptionToCategoryId(`${item.label} ${desc}`);
-            return {
-              title: item.label,
-              source: 'wikidata' as const,
-              description: desc,
-              categoryHintId: matchedCatId || undefined,
-            };
-          });
+          // Filter out adult/inappropriate entities & non-household items
+          const safeSemanticItems: SuggestionItem[] = searchResults
+            .filter((item) => isHouseholdRelevantAndSafe(item.label, item.description || ''))
+            .map((item) => {
+              const desc = item.description || '';
+              const matchedCatId = mapSemanticDescriptionToCategoryId(`${item.label} ${desc}`);
+              return {
+                title: item.label,
+                source: 'wikidata' as const,
+                description: desc,
+                categoryHintId: matchedCatId || undefined,
+              };
+            })
+            .slice(0, 5);
 
           const combined = [
             ...historyMatches,
-            ...semanticItems.filter(
+            ...safeSemanticItems.filter(
               (s) => !historyMatches.some((h) => h.title.toLowerCase() === s.title.toLowerCase())
             ),
           ];
 
           setMatchingSuggestions(combined);
           setShowDropdown(combined.length > 0);
-
-          if (semanticItems.length > 0 && semanticItems[0].categoryHintId) {
-            setCategoryId(semanticItems[0].categoryHintId);
-          }
-
-          if (!topMatch && semanticItems.length > 0) {
-            const semTop = semanticItems.find((s) => s.title.toLowerCase().startsWith(query));
-            if (semTop) {
-              setGhostSuffix(semTop.title.slice(val.length));
-            }
-          }
         }
       } catch (err) {
         // Fallback to history silently
       }
-    }, 250);
+    }, 300);
   };
 
+  // Only auto-assign category when the user EXPLICITLY selects a suggestion card!
   const selectSuggestion = (item: SuggestionItem) => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     setTitle(item.title);
-    setGhostSuffix('');
     setShowDropdown(false);
     setMatchingSuggestions([]);
     setSelectedIndex(null);
@@ -288,15 +298,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
 
   // Keyboard Navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if ((e.key === 'Tab' || e.key === 'ArrowRight') && ghostSuffix) {
-      e.preventDefault();
-      const topMatch = matchingSuggestions.find((m) =>
-        m.title.toLowerCase().startsWith(title.toLowerCase())
-      );
-      if (topMatch) {
-        selectSuggestion(topMatch);
-      }
-    } else if (e.key === 'ArrowDown' && showDropdown) {
+    if (e.key === 'ArrowDown' && showDropdown) {
       e.preventDefault();
       setSelectedIndex((prev) => (prev === null ? 0 : (prev + 1) % matchingSuggestions.length));
     } else if (e.key === 'ArrowUp' && showDropdown) {
@@ -315,7 +317,6 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     setShowDropdown(false);
     setMatchingSuggestions([]);
-    setGhostSuffix('');
 
     if (!title.trim() || !amount || parseFloat(amount) <= 0) {
       return;
@@ -392,44 +393,29 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             </div>
           </div>
 
-          {/* Title Input with Wikidata Semantic Entity Classifier + Ghost Text */}
+          {/* Title Input with Non-Intrusive Grounded Autocomplete */}
           <div className="relative">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Expense Title
               </label>
-              {ghostSuffix && (
-                <span className="text-[10px] text-indigo-400 italic">
-                  Press Tab or → to complete
-                </span>
-              )}
             </div>
 
-            {/* Input Container with Inline Ghost Text */}
-            <div className="relative flex items-center">
-              <input
-                ref={inputRef}
-                type="text"
-                required
-                placeholder="e.g. KFC, Paneer, BESCOM, Fastag, Netflix"
-                value={title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-                onFocus={() => title.trim() && matchingSuggestions.length > 0 && setShowDropdown(true)}
-                className="w-full bg-slate-800/80 text-white px-4 py-2.5 rounded-xl border border-slate-700 focus:border-indigo-500 focus:outline-none text-sm transition-colors relative z-10"
-              />
+            {/* Input Field */}
+            <input
+              ref={inputRef}
+              type="text"
+              required
+              placeholder="e.g. KFC, Paneer, BESCOM, Fastag, Netflix"
+              value={title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+              onFocus={() => title.trim().length >= 3 && matchingSuggestions.length > 0 && setShowDropdown(true)}
+              className="w-full bg-slate-800/80 text-white px-4 py-2.5 rounded-xl border border-slate-700 focus:border-indigo-500 focus:outline-none text-sm transition-colors"
+            />
 
-              {/* Inline Ghost Text Overlay */}
-              {ghostSuffix && (
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-sm z-20 flex whitespace-pre">
-                  <span className="opacity-0">{title}</span>
-                  <span className="text-slate-500 font-medium">{ghostSuffix}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Live Wikidata Semantic Search Dropdown Panel */}
+            {/* Non-Intrusive Grounded Dropdown Panel */}
             {showDropdown && matchingSuggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden divide-y divide-slate-800 animate-fade-in max-h-56 overflow-y-auto">
                 {matchingSuggestions.map((item, idx) => (
@@ -458,7 +444,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                       </div>
                     </div>
                     <span className="text-[9px] text-slate-400 uppercase font-semibold tracking-wider shrink-0 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
-                      {item.source === 'history' ? 'Past Expense' : 'Wikidata AI'}
+                      {item.source === 'history' ? 'Past Expense' : 'Wikidata Verified'}
                     </span>
                   </button>
                 ))}

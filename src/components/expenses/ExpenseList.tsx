@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Expense, Category, Profile } from '@/types';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Filter, Trash2, Edit2, ShoppingCart, Zap, Home, Utensils, ShoppingBag, HeartPulse, Car, Film, User, MoreHorizontal, Calendar, FileSpreadsheet, FileText, Download, X, SlidersHorizontal } from 'lucide-react';
+import { Search, Filter, Trash2, Edit2, ShoppingCart, Zap, Home, Utensils, ShoppingBag, HeartPulse, Car, Film, User, MoreHorizontal, Calendar, FileSpreadsheet, FileText, Download, X, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -26,6 +26,8 @@ const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   MoreHorizontal,
 };
 
+export type SortOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc' | 'title_asc';
+
 export const ExpenseList: React.FC<ExpenseListProps> = ({
   expenses,
   categories,
@@ -37,6 +39,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserFilter, setSelectedUserFilter] = useState('ALL');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState<SortOption>('date_desc');
 
   // Export Modal State & Date Range
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -60,13 +63,26 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       return matchesSearch && matchesUser && matchesCat;
     })
     .sort((a, b) => {
-      const dateDiff = new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime();
-      if (dateDiff !== 0) return dateDiff;
-
-      const aTime = a.created_at ? new Date(a.created_at).getTime() : (Number(a.id?.replace('exp-', '')) || 0);
-      const bTime = b.created_at ? new Date(b.created_at).getTime() : (Number(b.id?.replace('exp-', '')) || 0);
-
-      return bTime - aTime;
+      if (sortBy === 'date_asc') {
+        const dateDiff = new Date(a.expense_date).getTime() - new Date(b.expense_date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : (Number(a.id?.replace('exp-', '')) || 0);
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : (Number(b.id?.replace('exp-', '')) || 0);
+        return aTime - bTime;
+      } else if (sortBy === 'amount_desc') {
+        return b.amount - a.amount;
+      } else if (sortBy === 'amount_asc') {
+        return a.amount - b.amount;
+      } else if (sortBy === 'title_asc') {
+        return a.title.localeCompare(b.title);
+      } else {
+        // Default: date_desc (Newest First + Timestamp Tie-Breaker)
+        const dateDiff = new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : (Number(a.id?.replace('exp-', '')) || 0);
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : (Number(b.id?.replace('exp-', '')) || 0);
+        return bTime - aTime;
+      }
     });
 
   // Filtered & Sorted (Date Decreasing Order + Timestamp Tie-Breaker) Expenses for Export Range
@@ -272,40 +288,63 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </div>
       </div>
 
-      {/* Filter Badges */}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 mr-2">
-          <Filter className="w-3.5 h-3.5" />
-          <span>Filters:</span>
+      {/* Filter Badges & Right-Aligned Sort Controls Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        {/* Left Side: Filter Options */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 mr-1">
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filters:</span>
+          </div>
+
+          <select
+            value={selectedUserFilter}
+            onChange={(e) => setSelectedUserFilter(e.target.value)}
+            aria-label="Filter by person"
+            className="bg-slate-800 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 focus:outline-none"
+          >
+            <option value="ALL">All Partners</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.display_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedCategoryFilter}
+            onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+            aria-label="Filter by category"
+            className="bg-slate-800 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 focus:outline-none"
+          >
+            <option value="ALL">All Categories</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <select
-          value={selectedUserFilter}
-          onChange={(e) => setSelectedUserFilter(e.target.value)}
-          aria-label="Filter by person"
-          className="bg-slate-800 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 focus:outline-none"
-        >
-          <option value="ALL">All Partners</option>
-          {profiles.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.display_name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedCategoryFilter}
-          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-          aria-label="Filter by category"
-          className="bg-slate-800 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 focus:outline-none"
-        >
-          <option value="ALL">All Categories</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        {/* Right Side: Sort By Selector */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex items-center gap-1 text-xs text-slate-400">
+            <ArrowUpDown className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">Sort:</span>
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            aria-label="Sort transactions"
+            className="bg-slate-800 text-slate-200 font-semibold text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-indigo-500 transition-colors"
+          >
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+            <option value="amount_desc">Amount: High to Low</option>
+            <option value="amount_asc">Amount: Low to High</option>
+            <option value="title_asc">Title: A to Z</option>
+          </select>
+        </div>
       </div>
 
       {/* Expense Items List */}

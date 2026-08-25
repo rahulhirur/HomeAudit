@@ -171,13 +171,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               No category expense data for {timeframeLabel}.
             </div>
           ) : (
-            <div className="h-72">
+            <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={categoryData}
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     innerRadius={60}
                     outerRadius={95}
                     paddingAngle={4}
@@ -195,7 +195,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     layout="horizontal"
                     verticalAlign="bottom"
                     align="center"
-                    wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                    wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -213,17 +213,29 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               No comparison data available for {timeframeLabel}.
             </div>
           ) : (
-            <div className="h-72">
+            <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={comparisonData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
+                <BarChart data={comparisonData} margin={{ top: 10, right: 10, left: -15, bottom: 40 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="category" stroke="#94a3b8" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" />
+                  <XAxis
+                    dataKey="category"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    angle={-25}
+                    textAnchor="end"
+                    interval={0}
+                    dy={4}
+                  />
                   <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
                   <Tooltip
                     formatter={(val: any) => [`${currencySymbol}${Number(val || 0).toLocaleString('en-IN')}`, 'Spent']}
                     contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
                   />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '5px' }} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ fontSize: '11px', paddingBottom: '12px' }}
+                  />
                   <Bar dataKey={userA.display_name} fill="#10b981" radius={[4, 4, 0, 0]} />
                   <Bar dataKey={userB.display_name} fill="#f43f5e" radius={[4, 4, 0, 0]} />
                 </BarChart>

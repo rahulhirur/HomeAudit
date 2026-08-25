@@ -216,6 +216,47 @@ export default function Home() {
     setIsAddModalOpen(true);
   };
 
+  const handleBulkSaveExpenses = async (importedExpenses: Partial<Expense>[]) => {
+    const supabase = createClient();
+
+    if (supabase && !isDemoMode) {
+      const payload = importedExpenses.map((e) => ({
+        title: e.title,
+        amount: e.amount,
+        category_id: e.category_id,
+        user_id: e.user_id || user?.id,
+        split_type: e.split_type || 'SHARED_50_50',
+        expense_date: e.expense_date,
+        description: e.description,
+      }));
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert(payload)
+        .select();
+
+      if (data && !error) {
+        setExpenses((prev) => [...data, ...prev]);
+        return;
+      }
+    }
+
+    // Local Fallback
+    const newItems: Expense[] = importedExpenses.map((e, idx) => ({
+      id: `exp-${Date.now()}-${idx}`,
+      user_id: e.user_id || user?.id || allProfiles[0]?.id || '',
+      category_id: e.category_id!,
+      amount: e.amount!,
+      title: e.title!,
+      description: e.description,
+      expense_date: e.expense_date!,
+      split_type: e.split_type || 'SHARED_50_50',
+      created_at: new Date().toISOString(),
+    }));
+
+    setExpenses((prev) => [...newItems, ...prev]);
+  };
+
   const handleSettleAll = async () => {
     const supabase = createClient();
 
@@ -270,6 +311,7 @@ export default function Home() {
             profiles={allProfiles}
             onEditExpense={handleEditClick}
             onDeleteExpense={handleDeleteExpense}
+            onBulkSaveExpenses={handleBulkSaveExpenses}
           />
         )}
 

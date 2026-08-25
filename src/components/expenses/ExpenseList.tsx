@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Expense, Category, Profile } from '@/types';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Filter, Trash2, Edit2, ShoppingCart, Zap, Home, Utensils, ShoppingBag, HeartPulse, Car, Film, User, MoreHorizontal, Calendar, FileSpreadsheet, FileText, Download, X, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, Trash2, Edit2, ShoppingCart, Zap, Home, Utensils, ShoppingBag, HeartPulse, Car, Film, User, MoreHorizontal, Calendar, FileSpreadsheet, FileText, Download, X, SlidersHorizontal, ArrowUpDown, Upload } from 'lucide-react';
+import { ImportExpensesModal } from '@/components/expenses/ImportExpensesModal';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -11,6 +12,7 @@ interface ExpenseListProps {
   profiles: Profile[];
   onEditExpense: (expense: Expense) => void;
   onDeleteExpense: (expenseId: string) => void;
+  onBulkSaveExpenses?: (importedExpenses: Partial<Expense>[]) => Promise<void> | void;
 }
 
 const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
@@ -34,6 +36,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   profiles,
   onEditExpense,
   onDeleteExpense,
+  onBulkSaveExpenses,
 }) => {
   const { currencySymbol, currency } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,8 +44,9 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState<SortOption>('date_desc');
 
-  // Export Modal State & Date Range
+  // Import & Export Modal State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -277,6 +281,14 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               className="w-full bg-slate-800/80 text-white pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-700 focus:border-indigo-500 focus:outline-none"
             />
           </div>
+
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all shrink-0 active:scale-95"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Import File
+          </button>
 
           <button
             onClick={() => setIsExportModalOpen(true)}
@@ -546,6 +558,15 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </div>
         </div>
       )}
+
+      {/* Bulk Import Expenses Modal */}
+      <ImportExpensesModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        categories={categories}
+        profiles={profiles}
+        onBulkSaveExpenses={onBulkSaveExpenses || (() => {})}
+      />
     </div>
   );
 };

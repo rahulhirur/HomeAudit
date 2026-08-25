@@ -92,10 +92,16 @@ export const MinimalistHome: React.FC<MinimalistHomeProps> = ({
       ? `Q${currentQuarter + 1} ${currentYear}`
       : `Year ${currentYear}`;
 
-  // Sorted entries for recent transactions
-  const sortedTimeframeExpenses = [...filteredExpenses].sort(
-    (a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime()
-  );
+  // Sorted entries for recent transactions (Primary: expense_date, Secondary: created_at timestamp tie-breaker)
+  const sortedTimeframeExpenses = [...filteredExpenses].sort((a, b) => {
+    const dateDiff = new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime();
+    if (dateDiff !== 0) return dateDiff;
+
+    const aTime = a.created_at ? new Date(a.created_at).getTime() : (Number(a.id?.replace('exp-', '')) || 0);
+    const bTime = b.created_at ? new Date(b.created_at).getTime() : (Number(b.id?.replace('exp-', '')) || 0);
+
+    return bTime - aTime;
+  });
 
   const totalRecentPages = Math.max(1, Math.ceil(sortedTimeframeExpenses.length / itemsPerPage));
   const currentStartIndex = (recentPage - 1) * itemsPerPage;

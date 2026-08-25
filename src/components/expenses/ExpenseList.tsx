@@ -48,24 +48,42 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [exportStartDate, setExportStartDate] = useState(firstDayOfMonth);
   const [exportEndDate, setExportEndDate] = useState(todayStr);
 
-  const filteredExpenses = expenses.filter((exp) => {
-    const matchesSearch =
-      exp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exp.description && exp.description.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredExpenses = expenses
+    .filter((exp) => {
+      const matchesSearch =
+        exp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (exp.description && exp.description.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesUser = selectedUserFilter === 'ALL' || exp.user_id === selectedUserFilter;
-    const matchesCat = selectedCategoryFilter === 'ALL' || exp.category_id === selectedCategoryFilter;
+      const matchesUser = selectedUserFilter === 'ALL' || exp.user_id === selectedUserFilter;
+      const matchesCat = selectedCategoryFilter === 'ALL' || exp.category_id === selectedCategoryFilter;
 
-    return matchesSearch && matchesUser && matchesCat;
-  });
+      return matchesSearch && matchesUser && matchesCat;
+    })
+    .sort((a, b) => {
+      const dateDiff = new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime();
+      if (dateDiff !== 0) return dateDiff;
 
-  // Filtered & Sorted (Date Decreasing Order) Expenses for Export Range
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : (Number(a.id?.replace('exp-', '')) || 0);
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : (Number(b.id?.replace('exp-', '')) || 0);
+
+      return bTime - aTime;
+    });
+
+  // Filtered & Sorted (Date Decreasing Order + Timestamp Tie-Breaker) Expenses for Export Range
   const exportTargetExpenses = expenses
     .filter((exp) => {
       const expDate = exp.expense_date;
       return expDate >= exportStartDate && expDate <= exportEndDate;
     })
-    .sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
+    .sort((a, b) => {
+      const dateDiff = new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : (Number(a.id?.replace('exp-', '')) || 0);
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : (Number(b.id?.replace('exp-', '')) || 0);
+
+      return bTime - aTime;
+    });
 
   // 1. CSV / Excel Export Handler (Sl No, Item Name, Category, Date, Cost, Paid by - Date Decreasing)
   const handleExportExcelCSV = () => {

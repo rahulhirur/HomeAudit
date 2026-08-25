@@ -49,11 +49,12 @@ export default function Home() {
           setCategories(dbCategories);
         }
 
-        // 2. Fetch Expenses from live Supabase table
+        // 2. Fetch Expenses from live Supabase table (Primary: expense_date, Secondary: created_at timestamp)
         const { data: dbExpenses } = await supabase
           .from('expenses')
           .select('*')
-          .order('expense_date', { ascending: false });
+          .order('expense_date', { ascending: false })
+          .order('created_at', { ascending: false });
 
         if (dbExpenses) {
           setExpenses(dbExpenses);
